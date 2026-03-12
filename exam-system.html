@@ -703,11 +703,11 @@
     <div class="navbar no-print">
         <h1>📚 Exam System</h1>
         <div class="controls">
-            <button class="btn-primary active" id="btnQuestions" onclick="setView('questions')">প্রশ্নপত্র</button>
-            <button class="btn-primary" id="btnSolutions" onclick="setView('solutions')">সমাধান পত্র</button>
-            <button class="btn-success" onclick="randomizeQuestions()">🔀 র‍্যান্ডমাইজ</button>
-            <button class="btn-warning" onclick="window.print()">🖨️ প্রিন্ট</button>
-            <button class="btn-danger" onclick="resetQuestions()">↺ রিসেট</button>
+            <button class="btn-primary active" id="btnQuestions">প্রশ্নপত্র</button>
+            <button class="btn-primary" id="btnSolutions">সমাধান পত্র</button>
+            <button class="btn-success" id="btnRandomize">🔀 র‍্যান্ডমাইজ</button>
+            <button class="btn-warning" id="btnPrint">🖨️ প্রিন্ট</button>
+            <button class="btn-danger" id="btnReset">↺ রিসেট</button>
         </div>
     </div>
 
@@ -716,15 +716,14 @@
             <label>JSON আপলোড:</label>
             <div style="display: flex; align-items: center;">
                 <!-- Hidden real file input -->
-                <input type="file" id="jsonFileInput" accept=".json,application/json" style="display:none"
-                    onchange="handleJsonUpload(event)">
-                <button class="btn-upload" onclick="document.getElementById('jsonFileInput').click()">
+                <input type="file" id="jsonFileInput" accept=".json,application/json" style="display:none">
+                <button class="btn-upload" id="btnUploadTrigger">
                     📂 JSON আপলোড
                 </button>
-                <button class="btn-info" onclick="openInstructionModal()">
+                <button class="btn-info" id="btnInstructionModal">
                     ℹ️ JSON স্ট্রাকচার
                 </button>
-                <button class="btn-paste" onclick="openPasteModal()">
+                <button class="btn-paste" id="btnOpenPaste">
                     📋 Text পেস্ট
                 </button>
             </div>
@@ -732,7 +731,7 @@
 
         <div class="option-group">
             <label>প্রশ্ন সংখ্যা:</label>
-            <input type="number" id="questionCount" value="84" min="1" max="100" onchange="filterQuestions()">
+            <input type="number" id="questionCount" value="84" min="1" max="100">
         </div>
 
         <div class="option-group">
@@ -763,7 +762,7 @@
     <!-- JSON Structure Instruction Modal -->
     <div id="instructionModal" class="modal">
         <div class="modal-content">
-            <span class="close-modal" onclick="closeInstructionModal()">&times;</span>
+            <span class="close-modal" id="instructionModalClose">&times;</span>
             <h2>JSON ফাইল স্ট্রাকচার নির্দেশিকা</h2>
             <p>আপনার JSON ফাইলটি অবশ্যই নিচের কাঠামো অনুসরণ করে তৈরি করতে হবে:</p>
             <pre>
@@ -817,9 +816,8 @@
                 প্রম্পট (LLM এর জন্য)</h2>
             <p>আপনার কাছে থাকা যেকোনো টেক্সট বা ছবি থেকে সরাসরি এই স্ট্রাকচারে প্রশ্ন তৈরি করতে নিচের প্রম্পটটি কপি করে
                 ChatGPT, Claude বা অন্য কোনো AI-কে দিন:</p>
-            <textarea readonly
+            <textarea id="aiPromptTextarea" readonly
                 style="width: 100%; height: 250px; padding: 15px; font-family: Consolas, monospace; font-size: 13px; border-radius: 5px; border: 1px solid #ccc; background: #fdfdfd; resize: vertical; margin-top: 10px; cursor: pointer;"
-                onclick="this.select(); document.execCommand('copy'); showToast('✅ প্রম্পট কপি হয়েছে!');"
                 title="Click to copy">Extract the following questions and format them ONLY as a valid JSON object following this exact schema. Do not include any other text, explanations, or markdown json block backticks in your response. Return raw JSON.
 
 {
@@ -850,7 +848,7 @@ Here are the questions to extract:
     <!-- Raw JSON Paste Modal -->
     <div id="pasteModal" class="modal">
         <div class="modal-content">
-            <span class="close-modal" onclick="closePasteModal()">&times;</span>
+            <span class="close-modal" id="pasteModalClose">&times;</span>
             <h2>📋 Raw JSON পেস্ট করুন</h2>
             <p>আপনার JSON কোড নিচে পেস্ট করুন এবং 'লোড করুন' বাটনে ক্লিক করুন:</p>
             <textarea id="rawJsonInput"
@@ -859,524 +857,11 @@ Here are the questions to extract:
   "metadata": {...},
   "questions": [...]
 }'></textarea>
-            <button class="btn-submit-paste" onclick="handleRawJsonSubmit()">লোড করুন (Load Data)</button>
+            <button class="btn-submit-paste" id="btnSubmitPaste">লোড করুন (Load Data)</button>
         </div>
     </div>
 
-    <script>
-        let allQuestions = [];
-        let displayedQuestions = [];
-        let currentView = 'questions';
-        let metadata = {};
-        let setIndex = 0;
-
-        // ── JSON Upload via FileReader ──────────────────────────────────────
-        function handleJsonUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            if (!file.name.endsWith('.json')) {
-                alert('অনুগ্রহ করে একটি বৈধ .json ফাইল বেছে নিন।');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                processJsonData(e.target.result, file.name);
-            };
-            reader.readAsText(file, 'UTF-8');
-
-            // Reset so the same file can be re-selected if needed
-            event.target.value = '';
-        }
-
-        // ── Shared JSON Parsing Logic ───────────────────────────────────────
-        function processJsonData(jsonString, sourceName) {
-            try {
-                const data = JSON.parse(jsonString);
-
-                // Accept both {questions, metadata} and bare arrays
-                if (Array.isArray(data)) {
-                    allQuestions = data;
-                    metadata = {};
-                } else if (data.questions) {
-                    allQuestions = data.questions;
-                    metadata = data.metadata || {};
-                } else {
-                    alert('JSON ফাইলের গঠন সঠিক নয়। questions অ্যারে থাকতে হবে।');
-                    return;
-                }
-
-                displayedQuestions = [...allQuestions];
-                document.getElementById('questionCount').value = allQuestions.length;
-                filterQuestions();
-                setView(currentView);
-
-                showToast(`✅ ${sourceName} সফলভাবে লোড হয়েছে (${allQuestions.length}টি প্রশ্ন)`);
-
-            } catch (err) {
-                alert('JSON পার্স করতে সমস্যা হয়েছে: ' + err.message);
-                console.error('JSON parse error:', err);
-            }
-        }
-
-        function handleRawJsonSubmit() {
-            const jsonText = document.getElementById('rawJsonInput').value.trim();
-            if (!jsonText) {
-                alert('অনুগ্রহ করে কিছু JSON কোড পেস্ট করুন।');
-                return;
-            }
-            processJsonData(jsonText, 'পেস্ট করা ডাটা');
-            closePasteModal();
-            document.getElementById('rawJsonInput').value = ''; // clean up
-        }
-
-        // ── Toast helper ───────────────────────────────────────────────────
-        function showToast(msg) {
-            const toast = document.getElementById('uploadToast');
-            toast.textContent = msg;
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, 3500);
-        }
-
-        // ── Modal Handlers ─────────────────────────────────────────────────
-        function openInstructionModal() {
-            document.getElementById('instructionModal').style.display = 'block';
-        }
-
-        function closeInstructionModal() {
-            document.getElementById('instructionModal').style.display = 'none';
-        }
-
-        function openPasteModal() {
-            document.getElementById('pasteModal').style.display = 'block';
-        }
-
-        function closePasteModal() {
-            document.getElementById('pasteModal').style.display = 'none';
-        }
-
-        // Close modal when clicking outside of it
-        window.onclick = function (event) {
-            const instrModal = document.getElementById('instructionModal');
-            const pasteModal = document.getElementById('pasteModal');
-            if (event.target === instrModal) {
-                instrModal.style.display = 'none';
-            }
-            if (event.target === pasteModal) {
-                pasteModal.style.display = 'none';
-            }
-        }
-
-        // ── Drag-and-drop on the options panel ─────────────────────────────
-        const optionsPanel = document.querySelector('.options-panel');
-
-        optionsPanel.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            optionsPanel.classList.add('drag-over');
-        });
-
-        optionsPanel.addEventListener('dragleave', () => {
-            optionsPanel.classList.remove('drag-over');
-        });
-
-        optionsPanel.addEventListener('drop', (e) => {
-            e.preventDefault();
-            optionsPanel.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                // Reuse the same handler via a synthetic event-like object
-                handleJsonUpload({ target: { files: [file], value: '' } });
-            }
-        });
-        // Bengali numerals
-        function toBengaliNum(num) {
-            const bengaliNums = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-            return String(num).split('').map(d => bengaliNums[parseInt(d)] || d).join('');
-        }
-
-        // Restore saved view mode on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedView = localStorage.getItem('examSystem_viewMode');
-            if (savedView && (savedView === 'questions' || savedView === 'solutions')) {
-                currentView = savedView;
-            }
-            renderQuestions(); // Trigger empty state UI initially
-        });
-
-        function renderHeader() {
-            const header = document.getElementById('header');
-            const title = currentView === 'solutions' ? 'সমাধান পত্র (Solution Sheet)' : 'মডেল টেস্ট পরীক্ষা';
-
-            const setLabel = String.fromCharCode(65 + (setIndex % 26));
-
-            if (metadata.subject) {
-                document.title = `${metadata.subject} - Exam System`;
-            }
-
-            header.innerHTML = `
-                <h1>${title} <span style="font-size: 16px; float: right; border: 1px solid #000; padding: 2px 8px; border-radius: 4px;">সেট: ${setLabel}</span></h1>
-                <p>শ্রেণি: ${metadata.class || 'N/A'} | বিষয়: ${metadata.subject || 'N/A'}</p>
-                <p>অধ্যায়: ${metadata.chapter || 'N/A'} </p>
-            `;
-
-            const metaInfo = document.getElementById('metaInfo');
-            const totalMarks = displayedQuestions.length;
-
-            if (currentView === 'solutions') {
-                metaInfo.innerHTML = '';
-            } else {
-                metaInfo.innerHTML = `
-                    <span>পূর্ণমান: ${toBengaliNum(totalMarks)}</span>
-                    <span>সময়: ${toBengaliNum(totalMarks)} মিনিট</span>
-                `;
-            }
-        }
-
-        function filterQuestions() {
-            const count = parseInt(document.getElementById('questionCount').value) || 40;
-            displayedQuestions = allQuestions.slice(0, Math.min(count, allQuestions.length));
-            updateStats();
-            renderQuestions();
-        }
-
-        function renderQuestions() {
-            if (displayedQuestions.length === 0) {
-                document.getElementById('header').innerHTML = '';
-                document.getElementById('metaInfo').innerHTML = '';
-                document.getElementById('container').innerHTML = `
-                    <div style="text-align: center; padding: 50px; color: #7f8c8d; grid-column: 1 / -1; width: 100%;">
-                        <h2 style="margin-bottom: 20px;">স্বাগতম! (Welcome!)</h2>
-                        <p style="font-size: 16px;">শুরু করতে অনুগ্রহ করে উপর থেকে একটি JSON ফাইল (📂 JSON আপলোড) নির্বাচন করুন।</p>
-                    </div>
-                `;
-                document.getElementById('stats').innerHTML = '';
-                document.getElementById('answerKeyContainer').innerHTML = '';
-                return;
-            }
-
-            renderHeader();
-            const container = document.getElementById('container');
-            let html = '';
-
-            // Use display index (1, 2, 3...) not original ID
-            displayedQuestions.forEach((q, index) => {
-                html += createQuestionHTML(q, index + 1);
-            });
-
-            container.innerHTML = html;
-
-            // Apply view settings
-            applyViewSettings();
-            // Render LaTeX using KaTeX
-            if (typeof renderMathInElement !== 'undefined') {
-                renderMathInElement(container, {
-                    delimiters: [
-                        { left: '\\(', right: '\\)', display: false },
-                        { left: '\\[', right: '\\]', display: true },
-                        { left: '$$', right: '$$', display: true },
-                        { left: '$', right: '$', display: false }
-                    ],
-                    throwOnError: false
-                });
-            }
-        }
-
-        function createQuestionHTML(q, displayNumber) {
-            // Check if this is a CQ (Creative Question)
-            if (q.type === 'cq') {
-                return createCQHTML(q, displayNumber);
-            }
-
-            // Otherwise, render as MCQ
-            const optionLabels = ['ক', 'খ', 'গ', 'ঘ'];
-            const answerIndex = (q.answer !== undefined && q.answer !== null) ? q.answer : -1;
-            const answerLabel = answerIndex !== -1 ? optionLabels[answerIndex] : '?';
-
-            const hasImage = q.image ? 'with-image' : '';
-            let html = `<div class="question-box ${hasImage}">`;
-
-            // If image exists, float it to the right so text and options flow beside it
-            if (q.image) {
-                html += `<img src="${q.image}" alt="Question ${displayNumber} diagram" class="question-image" referrerpolicy="no-referrer" crossorigin="anonymous">`;
-            }
-            html += `<div class="question-text">${toBengaliNum(displayNumber)}. ${q.question}</div>`;
-
-            // Options appear BELOW the question-row (after the image)
-            if (q.options && q.options.length > 0) {
-                const compactClass = q.compact ? 'compact' : '';
-                const hasImageOptions = q.options.some(opt => opt && opt.startsWith('img:'));
-                const imageOptionsClass = hasImageOptions ? 'has-image-options' : '';
-                html += `<ul class="options ${compactClass} ${imageOptionsClass}">`;
-
-                q.options.forEach((opt, idx) => {
-                    const label = optionLabels[idx] || (idx + 1);
-                    const correctClass = idx === answerIndex ? 'correct' : '';
-                    // Check if option is an image (prefixed with "img:")
-                    if (opt && opt.startsWith('img:')) {
-                        const imgUrl = opt.substring(4); // Remove "img:" prefix
-                        html += `<li class="${correctClass} option-image">(${label}) <img src="${imgUrl}" alt="Option ${label}" class="option-img" referrerpolicy="no-referrer" crossorigin="anonymous"></li>`;
-                    } else {
-                        html += `<li class="${correctClass}">(${label}) ${opt}</li>`;
-                    }
-                });
-
-                html += `</ul>`;
-            }
-
-            // Answer text for solution mode - handle image options
-            if (answerIndex !== -1) {
-                const answerOption = q.options ? q.options[answerIndex] : null;
-                let answerDisplay = '';
-
-                if (answerOption) {
-                    answerDisplay = answerOption.startsWith('img:') ? `চিত্র ${answerLabel}` : answerOption;
-                }
-
-                html += `<div class="answer-text">উত্তর: (${answerLabel}) ${answerDisplay}</div>`;
-            }
-
-            // Explanation
-            if (q.explanation) {
-                html += `<div class="explanation"><b>ব্যাখ্যা:</b> ${q.explanation}</div>`;
-            }
-
-            html += `</div>`;
-            return html;
-        }
-
-        // Render Creative Question (CQ) format
-        function createCQHTML(q, displayNumber) {
-            let html = `<div class="question-box cq-box">`;
-
-            // Stem with optional image (number is inline with stem text)
-            if (q.stem) {
-                html += `<div class="cq-stem">`;
-                if (q.stem.image && q.stem.image.src) {
-                    html += `<img src="${q.stem.image.src}" alt="${q.stem.image.alt || 'Stem diagram'}" class="cq-stem-image" referrerpolicy="no-referrer" crossorigin="anonymous">`;
-                }
-                html += `<p><strong>${toBengaliNum(displayNumber)}.</strong> ${q.stem.text}</p>`;
-                html += `</div>`;
-            } else {
-                // If no stem, still show the question number
-                html += `<div class="cq-header"><strong>${toBengaliNum(displayNumber)}.</strong></div>`;
-            }
-
-            // Sub-questions (a, b, c, d)
-            if (q.questions && q.questions.length > 0) {
-                html += `<div class="cq-sub-questions">`;
-                q.questions.forEach(sub => {
-                    html += `<div class="cq-sub-question">`;
-                    html += `<span class="cq-label">(${sub.qid})</span> ${sub.question}`;
-
-                    // Answer for solution mode
-                    if (sub.answer) {
-                        html += `<div class="answer-text cq-answer"><b>উত্তর:</b> ${sub.answer}</div>`;
-                    }
-                    // Explanation for solution mode
-                    if (sub.explanation) {
-                        html += `<div class="explanation"><b>ব্যাখ্যা:</b> ${sub.explanation}</div>`;
-                    }
-                    html += `</div>`;
-                });
-                html += `</div>`;
-            }
-
-            html += `</div>`;
-            return html;
-        }
-
-        function setView(view) {
-            currentView = view;
-            // Save the view mode to localStorage
-            localStorage.setItem('examSystem_viewMode', currentView);
-
-            // Update button states
-            document.getElementById('btnQuestions').classList.toggle('active', view === 'questions');
-            document.getElementById('btnSolutions').classList.toggle('active', view === 'solutions');
-
-            applyViewSettings();
-            renderHeader();
-        }
-
-        function applyViewSettings() {
-            const container = document.getElementById('container');
-            const answerKeyContainer = document.getElementById('answerKeyContainer');
-
-            if (currentView === 'questions') {
-                container.classList.remove('solution-mode');
-                // Hide answer text and explanations
-                document.querySelectorAll('.answer-text').forEach(el => el.classList.add('hidden'));
-                // Show answer key table at bottom
-                renderAnswerKey();
-            } else {
-                container.classList.add('solution-mode');
-                // Show answer text
-                document.querySelectorAll('.answer-text').forEach(el => el.classList.remove('hidden'));
-                // Hide answer key in solution mode (answers are shown inline)
-                answerKeyContainer.innerHTML = '';
-                renderAnswerKey();
-            }
-        }
-
-        function renderAnswerKey() {
-            const answerKeyContainer = document.getElementById('answerKeyContainer');
-            const optionLabels = ['ক', 'খ', 'গ', 'ঘ'];
-
-            // Filter only MCQ questions (not CQ)
-            const mcqQuestions = displayedQuestions.filter(q => q.type !== 'cq');
-
-            if (mcqQuestions.length === 0) {
-                answerKeyContainer.innerHTML = '';
-                return;
-            }
-
-            // Calculate how many questions per row (12 questions per row like in the image)
-            const questionsPerRow = 20;
-            const totalRows = Math.ceil(mcqQuestions.length / questionsPerRow);
-
-            let html = '<table class="answer-key-table">';
-
-            for (let row = 0; row < totalRows; row++) {
-                const startIdx = row * questionsPerRow;
-                const endIdx = Math.min(startIdx + questionsPerRow, mcqQuestions.length);
-
-                // Question number row
-                html += '<tr>';
-
-                for (let i = startIdx; i < endIdx; i++) {
-                    const qNum = i + 1;  // Display number
-                    html += `<th>${toBengaliNum(qNum)}</th>`;
-                }
-                // Fill empty cells if needed
-                for (let i = endIdx; i < startIdx + questionsPerRow; i++) {
-                    html += '<th></th>';
-                }
-                html += '</tr>';
-
-                // Answer row
-                html += '<tr>';
-                for (let i = startIdx; i < endIdx; i++) {
-                    const q = mcqQuestions[i];
-                    const answerIndex = (q.answer !== undefined && q.answer !== null) ? q.answer : -1;
-                    const answerLabel = answerIndex !== -1 ? optionLabels[answerIndex] : '-';
-                    html += `<td class="answer-cell">${answerLabel}</td>`;
-                }
-                // Fill empty cells if needed
-                for (let i = endIdx; i < startIdx + questionsPerRow; i++) {
-                    html += '<td></td>';
-                }
-                html += '</tr>';
-            }
-
-            html += '</table>';
-            answerKeyContainer.innerHTML = html;
-        }
-
-        // Seeded random number generator (Mulberry32)
-        function mulberry32(a) {
-            return function () {
-                var t = a += 0x6D2B79F5;
-                t = Math.imul(t ^ t >>> 15, t | 1);
-                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-                return ((t ^ t >>> 14) >>> 0) / 4294967296;
-            }
-        }
-
-        function randomizeQuestions() {
-            if (allQuestions.length === 0) return; // Prevent shuffling an empty state
-
-            setIndex++;
-            const shouldShuffleOptions = document.getElementById('shuffleOptions').checked;
-
-            // Initialize deterministic RNG with a seed based on setIndex
-            // Changing the seed base ensures different sets are different
-            // Using setIndex ensures Set B is always Set B
-            const rng = mulberry32(setIndex + 1000);
-
-            // First pass: identify groups
-            const questionsByGroup = {};
-            const ungroupedQuestions = [];
-
-            displayedQuestions.forEach(originalQ => {
-                // Determine original index
-                const originalIndex = originalQ._originalIndex !== undefined ? originalQ._originalIndex : allQuestions.indexOf(originalQ);
-
-                // Clone to avoid mutating master list
-                let newQ = { ...originalQ };
-                newQ._originalIndex = originalIndex;
-
-                // Shuffle Options deterministically
-                if (shouldShuffleOptions && newQ.options && newQ.options.length > 0) {
-                    let indices = newQ.options.map((_, i) => i);
-
-                    // Fisher-Yates shuffle with seeded RNG
-                    for (let i = indices.length - 1; i > 0; i--) {
-                        const j = Math.floor(rng() * (i + 1));
-                        [indices[i], indices[j]] = [indices[j], indices[i]];
-                    }
-
-                    newQ.options = indices.map(i => originalQ.options[i]);
-
-                    if (originalQ.answer !== undefined && originalQ.answer !== null && originalQ.answer !== -1) {
-                        newQ.answer = indices.indexOf(originalQ.answer);
-                    }
-                }
-
-                if (newQ.group_id) {
-                    if (!questionsByGroup[newQ.group_id]) {
-                        questionsByGroup[newQ.group_id] = [];
-                    }
-                    questionsByGroup[newQ.group_id].push(newQ);
-                } else {
-                    ungroupedQuestions.push(newQ);
-                }
-            });
-
-            // Sort questions within groups to maintain logical order
-            Object.values(questionsByGroup).forEach(group => {
-                group.sort((a, b) => {
-                    // Fallback to 0 if _originalIndex is missing/invalid, 
-                    // though it should be there for fresh clones.
-                    // For safety, checks if .indexOf failed returning -1
-                    const idxA = a._originalIndex !== undefined ? a._originalIndex : 0;
-                    const idxB = b._originalIndex !== undefined ? b._originalIndex : 0;
-                    return idxA - idxB;
-                });
-            });
-
-            // Combine into a list of "shuffleable items"
-            let itemsToShuffle = [...ungroupedQuestions, ...Object.values(questionsByGroup)];
-
-            // Fisher-Yates shuffle the items with seeded RNG
-            for (let i = itemsToShuffle.length - 1; i > 0; i--) {
-                const j = Math.floor(rng() * (i + 1));
-                [itemsToShuffle[i], itemsToShuffle[j]] =
-                    [itemsToShuffle[j], itemsToShuffle[i]];
-            }
-
-            // Flatten back into a question list
-            displayedQuestions = itemsToShuffle.flat();
-            renderQuestions();
-        }
-
-        function resetQuestions() {
-            setIndex = 0;
-            displayedQuestions = [...allQuestions];
-            document.getElementById('questionCount').value = allQuestions.length;
-            filterQuestions();
-        }
-
-        function updateStats() {
-            const stats = document.getElementById('stats');
-            const totalMarks = displayedQuestions.length;
-            stats.innerHTML = `
-                <strong>পরীক্ষার তথ্য:</strong> 
-                মোট প্রশ্ন: ${displayedQuestions.length} | 
-                পূর্ণমান: ${totalMarks} | 
-                সময়: ${totalMarks} মিনিট
-            `;
-        }
-    </script>
+    <script type="module" src="./app.js"></script>
 
 </body>
 
