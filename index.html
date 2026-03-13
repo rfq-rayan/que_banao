@@ -813,34 +813,96 @@
 }
             </pre>
 
-            <h2 style="margin-top: 25px; padding-top: 15px; border-top: 1px dotted #ccc; border-bottom: none;">🤖 AI
-                প্রম্পট (LLM এর জন্য)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; padding-top: 15px; border-top: 1px dotted #ccc;">
+                <h2 style="margin: 0; border: none; padding: 0;">🤖 AI প্রম্পট (LLM এর জন্য)</h2>
+                <button type="button" id="copyPromptBtn" class="btn-primary" style="flex-shrink: 0; margin-left: 10px;" onclick="copyAiPrompt(); showToast('✅ প্রম্পট কপি হয়েছে!');">📋 কপি</button>
+            </div>
             <p>আপনার কাছে থাকা যেকোনো টেক্সট বা ছবি থেকে সরাসরি এই স্ট্রাকচারে প্রশ্ন তৈরি করতে নিচের প্রম্পটটি কপি করে
                 ChatGPT, Claude বা অন্য কোনো AI-কে দিন:</p>
-            <textarea readonly
-                style="width: 100%; height: 250px; padding: 15px; font-family: Consolas, monospace; font-size: 13px; border-radius: 5px; border: 1px solid #ccc; background: #fdfdfd; resize: vertical; margin-top: 10px; cursor: pointer;"
+            <textarea id="aiPromptTextarea" readonly
+                style="width: 100%; height: 400px; padding: 15px; font-family: Consolas, monospace; font-size: 13px; border-radius: 5px; border: 1px solid #ccc; background: #fdfdfd; resize: vertical; margin-top: 10px; cursor: pointer;"
                 onclick="this.select(); document.execCommand('copy'); showToast('✅ প্রম্পট কপি হয়েছে!');"
-                title="Click to copy">Extract the following questions and format them ONLY as a valid JSON object following this exact schema. Do not include any other text, explanations, or markdown json block backticks in your response. Return raw JSON.
+                title="Click to copy">Extract the following questions and format them ONLY as a valid JSON object. no citation needed.
 
+SCHEMA:
 {
   "metadata": {"chapter": "", "class": "", "subject": "", "totalMarks": 0, "duration": ""},
-  "questions": [
-    {
-      "id": 1,
-      "question": "Question text here",
-      "compact": true,
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "answer": 0,
-      "explanation": "Explanation here"
-    }
-  ]
+  "questions": [/* MCQ and/or CQ objects */]
 }
 
-- "answer" must be a 0-based integer representing the correct option index.
-- If it's a CQ (Creative Question with a stem and multiple sub-questions), use this format instead:
-{"id": 2, "type": "cq", "stem": {"text": "Stem text"}, "questions": [{"qid": "a", "question": "Sub-question", "answer": "Short answer", "explanation": "Detailed explanation"}]}
-- For LaTeX equations, strictly use \\( ... \\) for inline math and \\[ ... \\] for block math. Do not use $ or $$.
-- Output MUST be valid, parseable JSON.
+MCQ FORMAT:
+{
+  "id": 1,
+  "topic": "Topic name",
+  "question": "Question text with $LaTeX$",
+  "compact": true,
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "answer": 0,
+  "explanation": "Detailed explanation with $LaTeX$",
+  "image": "https://example.com/diagram.png",
+  "group_id": "1-2"
+}
+- "answer": 0-based index of the correct option (0 = first option).
+- "compact": true to show options side-by-side, false for 2-column grid.
+- "topic": short topic label (optional).
+- "image": URL for question diagram (optional).
+- "group_id": shared ID string to keep linked questions together when shuffled (optional, e.g. "8-9" for questions 8 and 9).
+
+CQ FORMAT (Creative Question with stem + sub-questions):
+{
+  "id": 2,
+  "type": "cq",
+  "compact": false,
+  "stem": {
+    "text": "Stem / passage text with $LaTeX$",
+    "image": null
+  },
+  "questions": [
+    {"qid": "গ", "question": "Sub-question text", "answer": "Short answer", "explanation": "Full worked-out solution with $LaTeX$"},
+    {"qid": "ঘ", "question": "Another sub-question", "answer": "Short answer", "explanation": "Full solution"}
+  ]
+}
+- "type" MUST be "cq" for creative questions.
+- "qid": Bengali sub-question label (গ, ঘ, etc.).
+
+LATEX RULES (critical — read carefully):
+- Use $...$ for inline math and $$...$$ for display/block math. This is the preferred format.
+- Alternative: \\(...\\) for inline and \\[...\\] for block math (but requires extra escaping — see below).
+- All LaTeX backslash commands MUST be JSON-escaped (doubled): write \\frac not \frac, \\sqrt not \sqrt, \\times not \times, \\pi not \pi, etc.
+- Examples of correct JSON strings:
+  "$\\frac{a}{b}$"         ← inline math with $ delimiters (preferred)
+  "\\(\\frac{a}{b}\\)"     ← inline math with \\( \\) delimiters (also valid)
+  "$x^{2}+y^{2}=r^{2}$"   ← simple equation
+  "$\\sqrt{3}$"            ← square root
+  "$\\tan^{-1}\\frac{1}{2}$" ← inverse trig
+- Output MUST be valid, parseable JSON. Verify all brackets, quotes, and backslashes are balanced.
+
+EXPLICIT EXAMPLES 
+Example MCQ:
+{
+  "id": 3,
+  "topic": "লম্ব দূরত্ব",
+  "question": "(1, 2) বিন্দু হতে \\(8x+15y-4=0\\) রেখার লম্ব দূরত্ব কত?",
+  "compact": true,
+  "options": ["3", "5", "2", "4.2"],
+  "answer": 2,
+  "explanation": "লম্ব দূরত্ব = \\(\\frac{|8(1) + 15(2) - 4|}{\\sqrt{8^2 + 15^2}} = \\frac{34}{\\sqrt{289}} = \\frac{34}{17} = 2\\) একক।"
+}
+
+Example CQ:
+{
+  "id": 1,
+  "type": "cq",
+  "compact": false,
+  "stem": {
+    "text": "একটি সিলিন্ডারে পিস্টন দ্বারা একটি গ্যাস আবদ্ধ করা আছে। চাপ 200 Pa এ স্থির রেখে যদি ধীরে ধীরে সিস্টেমে 400 J তাপ সরবরাহ করা হয় তবে এটি 800 J কাজ সম্পাদন করে। আদর্শ গ্যাসটির আয়তন $25^\\circ \\text{C}$ তাপমাত্রা ও $1 \\times 10^5 \\text{ Nm}^{-2}$ এ $0.05 \\text{ m}^3$।",
+    "image": null
+  },
+  "questions": [
+    {"qid": "গ", "question": "গ্যাসের আয়তন নির্ণয় করো।", "answer": "গ্যাসের আয়তনের পরিবর্তন 4 m³", "explanation": "আমরা জানি, সমচাপ প্রক্রিয়ায় কৃতকাজ $W = P \\times \\Delta V$।\nএখানে, চাপ $P = 200 \\text{ Pa}$, কৃতকাজ $W = 800 \\text{ J}$।\n$\\therefore \\Delta V = \\frac{W}{P} = \\frac{800}{200} = 4 \\text{ m}^3$।"},
+    {"qid": "ঘ", "question": "উদ্দীপকের সিস্টেমের ক্ষেত্রে অন্তঃস্থ শক্তির পরিবর্তন কত হবে?", "answer": "-400 J", "explanation": "তাপগতিবিদ্যার প্রথম সূত্রানুসারে: $dQ = dU + dW$।\nএখানে, সরবরাহকৃত তাপ $dQ = 400 \\text{ J}$ এবং কৃতকাজ $dW = 800 \\text{ J}$।\n$\\therefore 400 = dU + 800 \\Rightarrow dU = -400 \\text{ J}$।"}
+  ]
+}
 
 Here are the questions to extract:
 [PASTE YOUR QUESTIONS HERE]</textarea>
@@ -945,6 +1007,19 @@ Here are the questions to extract:
 
         function closeInstructionModal() {
             document.getElementById('instructionModal').style.display = 'none';
+        }
+
+        function copyAiPrompt() {
+            const ta = document.getElementById('aiPromptTextarea');
+            const btn = document.getElementById('copyPromptBtn');
+            if (ta) {
+                ta.select();
+                document.execCommand('copy');
+                if (btn) {
+                    btn.textContent = '✓ কপি হয়েছে';
+                    setTimeout(() => { btn.textContent = '📋 কপি'; }, 2000);
+                }
+            }
         }
 
         function openPasteModal() {
