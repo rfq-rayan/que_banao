@@ -1,0 +1,15 @@
+[build]
+  # The directory where Netlify will look for package.json and run the build
+  base = "v2"
+
+  # The command to build your React app
+  command = "npm run build"
+
+  # The directory that Netlify will serve (relative to the base directory)
+  publish = "dist"
+
+# Optional: Redirect all requests to index.html for React Router (Single Page App)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,230 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+/* ── Design Tokens ────────────────────────────────────────────────────── */
+
+@theme {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-active: #1e3a5f;
+  --color-success: #16a34a;
+  --color-success-hover: #15803d;
+  --color-warning: #d97706;
+  --color-warning-hover: #b45309;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-navbar: #1e293b;
+  --color-upload: #7c3aed;
+  --color-upload-hover: #6d28d9;
+  --font-sans: "Inter", "Hind Siliguri", sans-serif;
+  --font-bengali: "Hind Siliguri", "kalpurush", sans-serif;
+  --font-mono: "Consolas", "Monaco", monospace;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-bengali);
+  background-color: var(--color-surface-alt);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+/* ── A4 Page ──────────────────────────────────────────────────────────── */
+
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 20px auto;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  padding: 15mm;
+  border-radius: 8px;
+}
+
+/* ── Question Container (2-column layout) ─────────────────────────────── */
+
+.question-container {
+  column-count: 2;
+  column-gap: 40px;
+  column-rule: 1px solid var(--color-border);
+}
+
+/* ── Question Box ─────────────────────────────────────────────────────── */
+
+.question-box {
+  break-inside: avoid;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.question-box.with-image {
+  overflow: hidden;
+}
+
+.question-image {
+  float: right;
+  max-width: 120px;
+  height: auto;
+  margin: 0 0 5px 10px;
+}
+
+/* ── MCQ Options Grid ─────────────────────────────────────────────────── */
+
+.options-grid {
+  list-style-type: none;
+  padding-left: 0;
+  margin-top: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 10px;
+}
+
+.options-grid.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.options-grid.compact li {
+  white-space: nowrap;
+  flex: 1;
+}
+
+.options-grid.has-image-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.option-img {
+  max-width: 50%;
+  height: auto;
+  vertical-align: middle;
+}
+
+/* ── CQ Styles ────────────────────────────────────────────────────────── */
+
+.cq-stem-image {
+  max-width: 200px;
+  float: right;
+  margin: 0 0 10px 10px;
+}
+
+/* ── Solution Mode ────────────────────────────────────────────────────── */
+
+.solution-mode .question-box {
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 4px;
+  margin-bottom: 3px;
+}
+
+.explanation {
+  font-size: 12px;
+  background-color: #f8fafc;
+  padding: 5px 4px;
+  border-left: 3px solid var(--color-primary);
+  margin-top: 2px;
+}
+
+/* ── Answer Key Table ─────────────────────────────────────────────────── */
+
+.answer-key-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.answer-key-table th,
+.answer-key-table td {
+  border: 1px solid #000;
+  padding: 4px;
+  text-align: center;
+}
+
+.answer-key-table th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+/* ── Modal Overlay ────────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5vh;
+  overflow: auto;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px 32px;
+  width: 90%;
+  max-width: 800px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+/* ── Print Styles ─────────────────────────────────────────────────────── */
+
+@media print {
+  body {
+    padding: 0;
+    margin: 0;
+    background-color: white;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .a4-page {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    min-height: auto;
+    border-radius: 0;
+  }
+
+  .question-container {
+    column-count: 2 !important;
+    column-gap: 40px !important;
+    column-rule: 1px solid #ddd !important;
+  }
+
+  .question-box {
+    break-inside: avoid;
+    font-size: 12px;
+  }
+
+  .solution-mode .explanation {
+    background-color: transparent !important;
+    border-left: 1px solid #000;
+  }
+}
+
+@media (max-width: 768px) {
+  .question-container {
+    column-count: 1;
+  }
+
+  .a4-page {
+    width: 100%;
+    min-height: auto;
+    padding: 16px;
+    margin: 8px;
+  }
+}
