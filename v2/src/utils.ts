@@ -52,6 +52,7 @@ export function shuffleWithGroups(
     // Shuffle MCQ options deterministically
     if (
       shouldShuffleOptions &&
+      "options" in originalQ &&
       "options" in newQ &&
       newQ.options &&
       newQ.options.length > 0
